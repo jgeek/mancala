@@ -1,7 +1,7 @@
-package com.bol.assignment;
+package me.moreka.mancala;
 
-import com.bol.assignment.dto.GameDto;
-import com.bol.assignment.entity.Pit;
+import me.moreka.mancala.dto.GameDto;
+import me.moreka.mancala.entity.Pit;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.json.JSONException;

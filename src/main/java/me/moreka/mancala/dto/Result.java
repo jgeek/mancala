@@ -1,4 +1,4 @@
-package com.bol.assignment.dto;
+package me.moreka.mancala.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

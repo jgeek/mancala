@@ -1,14 +1,14 @@
-package com.bol.assignment.service;
+package me.moreka.mancala.service;
 
 import static java.util.stream.Collectors.*;
 
-import com.bol.assignment.dto.Move;
-import com.bol.assignment.dto.UserActionResult;
-import com.bol.assignment.entity.Game;
-import com.bol.assignment.entity.Pit;
-import com.bol.assignment.entity.Player;
-import com.bol.assignment.repository.GameRepository;
-import com.bol.assignment.repository.PitRepository;
+import me.moreka.mancala.dto.Move;
+import me.moreka.mancala.dto.UserActionResult;
+import me.moreka.mancala.entity.Game;
+import me.moreka.mancala.entity.Pit;
+import me.moreka.mancala.entity.User;
+import me.moreka.mancala.repository.GameRepository;
+import me.moreka.mancala.repository.PitRepository;
 import java.util.*;
 import java.util.stream.IntStream;
 import lombok.AllArgsConstructor;
@@ -21,16 +21,12 @@ public class GamePlayService {
     private final GameRepository gameRepo;
     private final PitRepository pitRepo;
 
-    public boolean isUserTurn(Game game, Player user) {
+    public boolean isUserTurn(Game game, User user) {
         return game.getCurrentPlayer().equals(user);
     }
 
-    public boolean isUserPit(Player user, Pit pit) {
+    public boolean isUserPit(User user, Pit pit) {
         return pit.getUser().equals(user);
-    }
-
-    public boolean hasEnoughStone(Pit pit) {
-        return pit.getStones() > 0;
     }
 
     /**
@@ -40,7 +36,7 @@ public class GamePlayService {
      * @return A wrapper contains all if moves needed to cover the player action. It also save new states of the game
      * and the pits.
      */
-    public UserActionResult generateMoves(Game game, Player player, Pit pit) {
+    public UserActionResult generateMoves(Game game, User player, Pit pit) {
         var stones = pit.getStones();
         List<Pit> userPits = game.getPits().stream().filter(p -> p.getUser().equals(player)).collect(toList());
         List<Pit> userPitsAfter = userPits.stream().filter(p -> p.getIndex() > pit.getIndex()).collect(toList());
@@ -94,13 +90,13 @@ public class GamePlayService {
         List<Move> grabMoves = grabOpponentStonesIfLastPitIsEmpty(player, userPits, opponentPits, lastPit);
         moves.add(grabMoves);
 
-        Player nextTurnPlayer = determineTheTurn(game, player, lastPit);
+        User nextTurnPlayer = determineTheTurn(game, player, lastPit);
         game.setCurrentPlayer(nextTurnPlayer);
 
         var result = new UserActionResult(moves);
-        Player hasStoneUser = checkIfGameEnded(game);
+        User hasStoneUser = checkIfGameEnded(game);
         if (hasStoneUser != null) {
-            Player winner = findWinner(game);
+            User winner = findWinner(game);
             game.setWinner(winner);
 
             List<Move> hasStoneUserMoves = generateHasStoneUserMoves(game, hasStoneUser);
@@ -111,13 +107,13 @@ public class GamePlayService {
         return result;
     }
 
-    private List<Move> grabOpponentStonesIfLastPitIsEmpty(Player user, List<Pit> userPits,
-            List<Pit> opponentPits, Pit lastPit) {
+    private List<Move> grabOpponentStonesIfLastPitIsEmpty(User user, List<Pit> userPits,
+                                                          List<Pit> opponentPits, Pit lastPit) {
         Pit bigPit = userPits.stream().filter(Pit::isBig).findFirst().get();
 
         Optional<Pit> toGrabPit = Optional.empty();
         if (lastPit.getStones() == 1 && lastPit.getUser().equals(user) && !lastPit.isBig()) {
-            toGrabPit = opponentPits.stream().filter(p -> p.getIndex() == GameFactory.PITS - 1 - lastPit.getIndex())
+            toGrabPit = opponentPits.stream().filter(p -> p.getIndex() == GameService.PITS - 1 - lastPit.getIndex())
                     .findFirst();
         }
         Optional<Pit> finalToGrabPit = toGrabPit;
@@ -139,7 +135,7 @@ public class GamePlayService {
         return grabMoves;
     }
 
-    private Player findWinner(Game game) {
+    private User findWinner(Game game) {
         List<Pit> mancalas = game.getMancalas();
         if (mancalas.get(0).getStones() > mancalas.get(1).getStones()) {
             return mancalas.get(0).getUser();
@@ -148,7 +144,7 @@ public class GamePlayService {
         }
     }
 
-    private List<Move> generateHasStoneUserMoves(Game game, Player winner) {
+    private List<Move> generateHasStoneUserMoves(Game game, User winner) {
         List<Pit> pits = game.getPits().stream().filter(p -> p.getUser().equals(winner)).collect(toList());
         Pit bigPit = pits.stream().filter(Pit::isBig).findFirst().get();
         List<Move> moves = new ArrayList<>();
@@ -165,7 +161,7 @@ public class GamePlayService {
         return moves;
     }
 
-    private Player determineTheTurn(Game game, Player player, Pit lastPit) {
+    private User determineTheTurn(Game game, User player, Pit lastPit) {
         if (lastPit.getUser().equals(player) && lastPit.isBig()) {
             return player;
         } else {
@@ -173,10 +169,10 @@ public class GamePlayService {
         }
     }
 
-    public Player checkIfGameEnded(Game game) {
-        Map<Player, List<Pit>> collect = game.getPits().stream().collect(groupingBy(Pit::getUser));
-        Player hasRemainedStonesUser = null;
-        for (Map.Entry<Player, List<Pit>> e : collect.entrySet()) {
+    public User checkIfGameEnded(Game game) {
+        Map<User, List<Pit>> collect = game.getPits().stream().collect(groupingBy(Pit::getUser));
+        User hasRemainedStonesUser = null;
+        for (Map.Entry<User, List<Pit>> e : collect.entrySet()) {
             int sum = e.getValue().stream().filter(p -> !p.isBig()).mapToInt(Pit::getStones).sum();
             if (sum == 0) {
                 hasRemainedStonesUser = collect.keySet().stream().filter(u -> !u.equals(e.getKey())).findFirst().get();

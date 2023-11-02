@@ -1,6 +1,6 @@
-package com.bol.assignment.dto;
+package me.moreka.mancala.dto;
 
-import com.bol.assignment.entity.Player;
+import me.moreka.mancala.entity.User;
 import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
@@ -12,7 +12,7 @@ import lombok.Setter;
 @Getter
 @Setter
 public class UserActionResult {
-    private Player currentPlayer;
+    private User currentPlayer;
     // normal moves in addition to bonus moves when a player grab his opponent stones and put them to his big pit.
     private List<List<Move>> moves;
     // after a player wins, his stones should be moved to big pit.

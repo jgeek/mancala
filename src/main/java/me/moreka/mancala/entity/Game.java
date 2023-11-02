@@ -1,4 +1,4 @@
-package com.bol.assignment.entity;
+package me.moreka.mancala.entity;
 
 import static java.util.stream.Collectors.toList;
 
@@ -19,20 +19,20 @@ public class Game extends BaseEntity {
 
     private String name;
     @OneToOne
-    private Player player1;
+    private User player1;
     @OneToOne
-    private Player player2;
+    private User player2;
     @OneToOne
-    private Player currentPlayer;
+    private User currentPlayer;
     @OneToOne
-    private Player winner;
+    private User winner;
     private int player1Score;
     private int player2Score;
     @OneToMany(mappedBy = "game")
     private List<Pit> pits;
     private Date date;
 
-    public Game(String name, Player user1, Player user2, Date date) {
+    public Game(String name, User user1, User user2, Date date) {
         this.name = name;
         this.player1 = user1;
         this.player2 = user2;

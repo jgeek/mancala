@@ -1,7 +1,6 @@
-package com.bol.assignment.repository;
+package me.moreka.mancala.repository;
 
-import com.bol.assignment.entity.Game;
-import com.bol.assignment.entity.Pit;
+import me.moreka.mancala.entity.Pit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

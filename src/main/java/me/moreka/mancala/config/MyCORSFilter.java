@@ -1,4 +1,4 @@
-package com.bol.assignment.config;
+package me.moreka.mancala.config;
 
 import java.io.IOException;
 import javax.servlet.*;

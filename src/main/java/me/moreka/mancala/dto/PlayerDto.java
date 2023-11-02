@@ -1,6 +1,6 @@
-package com.bol.assignment.dto;
+package me.moreka.mancala.dto;
 
-import com.bol.assignment.entity.Player;
+import me.moreka.mancala.entity.User;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -13,7 +13,7 @@ public class PlayerDto {
     private String username;
     private boolean currentPlayer;
 
-    public static PlayerDto toDto(Player user, Player currentUser) {
+    public static PlayerDto toDto(User user, User currentUser) {
         return new PlayerDto(user.getId(), user.getUsername(), user.getId().equals(currentUser.getId()));
     }
 }

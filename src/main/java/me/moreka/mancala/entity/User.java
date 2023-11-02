@@ -1,7 +1,6 @@
-package com.bol.assignment.entity;
+package me.moreka.mancala.entity;
 
 import javax.persistence.Column;
-import javax.persistence.Embeddable;
 import javax.persistence.Entity;
 import lombok.*;
 
@@ -10,7 +9,7 @@ import lombok.*;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class Player extends BaseEntity {
+public class User extends BaseEntity {
     @Column(unique = true)
     private String username;
 

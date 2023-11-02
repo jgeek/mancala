@@ -1,6 +1,6 @@
-package com.bol.assignment.advice;
+package me.moreka.mancala.advice;
 
-import com.bol.assignment.dto.Result;
+import me.moreka.mancala.dto.Result;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ControllerAdvice;

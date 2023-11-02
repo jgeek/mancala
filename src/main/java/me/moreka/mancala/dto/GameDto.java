@@ -1,10 +1,10 @@
-package com.bol.assignment.dto;
+package me.moreka.mancala.dto;
 
 import static java.util.stream.Collectors.toList;
 
-import com.bol.assignment.entity.Game;
-import com.bol.assignment.entity.Pit;
-import com.bol.assignment.entity.Player;
+import me.moreka.mancala.entity.Game;
+import me.moreka.mancala.entity.Pit;
+
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Data;

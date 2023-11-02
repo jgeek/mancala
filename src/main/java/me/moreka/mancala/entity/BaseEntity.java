@@ -1,4 +1,4 @@
-package com.bol.assignment.entity;
+package me.moreka.mancala.entity;
 
 import java.util.Objects;
 import javax.persistence.GeneratedValue;

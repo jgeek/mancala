@@ -1,6 +1,6 @@
-package com.bol.assignment.dto;
+package me.moreka.mancala.dto;
 
-import com.bol.assignment.entity.Pit;
+import me.moreka.mancala.entity.Pit;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
