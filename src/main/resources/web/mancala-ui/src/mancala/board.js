@@ -44,6 +44,11 @@ class Board extends React.Component {
                 (result) => {
                     console.log(result);
                     const data = result.data;
+                    if (!result.success) {
+                        console.log(result.message);
+                        alert(result.message);
+                        return;
+                    }
                     this.setState({
                         'fetched': true,
                         'player1': data.player1,
@@ -52,10 +57,6 @@ class Board extends React.Component {
                         'user2Pits': data.user2Pits,
                         'gameId': data.gameId
                     });
-                    if (!result.success) {
-                        console.log(result.message);
-                        alert(result.message);
-                    }
                 },
                 (error) => {
                     console.log(error)
