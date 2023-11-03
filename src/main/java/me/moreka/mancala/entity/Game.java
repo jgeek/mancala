@@ -3,12 +3,15 @@ package me.moreka.mancala.entity;
 import static java.util.stream.Collectors.toList;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import java.util.Date;
 import java.util.List;
 import javax.persistence.Entity;
 import javax.persistence.OneToMany;
 import javax.persistence.OneToOne;
+
 import lombok.*;
+import me.moreka.mancala.exception.InvalidMoveException;
 
 @Entity
 @Getter
@@ -47,5 +50,31 @@ public class Game extends BaseEntity {
     @JsonIgnore
     public List<Pit> getMancalas() {
         return getPits().stream().filter(Pit::isBig).collect(toList());
+    }
+
+    public boolean isUserTurn(User user) {
+        return currentPlayer.equals(user);
+    }
+
+    public User opponentOf(User user) {
+        if (user.equals(player1))
+            return player2;
+        return player1;
+    }
+
+    public List<Pit> pitsOf(User user) {
+        return pits.stream().filter(p -> p.getUser().equals(user)).collect(toList());
+    }
+
+    public void validateMove(User user, Pit pit) {
+        if (!isUserTurn(user)) {
+            throw new InvalidMoveException(String.format("%s! It's not your turn", user.getUsername()));
+        }
+        if (!pit.isPitOf(user)) {
+            throw new InvalidMoveException(String.format("%s! %s is not your pit.", user.getUsername(), pit.getIndex()));
+        }
+        if (!pit.hasStone()) {
+            throw new InvalidMoveException(String.format("Pit %s has no stone. Try another pit ;)", pit.getIndex()));
+        }
     }
 }
