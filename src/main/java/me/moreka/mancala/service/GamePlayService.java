@@ -9,10 +9,13 @@ import me.moreka.mancala.entity.Pit;
 import me.moreka.mancala.entity.User;
 import me.moreka.mancala.repository.GameRepository;
 import me.moreka.mancala.repository.PitRepository;
+
 import java.util.*;
 import java.util.stream.IntStream;
+
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @AllArgsConstructor
@@ -21,56 +24,73 @@ public class GamePlayService {
     private final GameRepository gameRepo;
     private final PitRepository pitRepo;
 
-    public boolean isUserTurn(Game game, User user) {
-        return game.getCurrentPlayer().equals(user);
-    }
-
-    public boolean isUserPit(User user, Pit pit) {
-        return pit.getUser().equals(user);
-    }
-
     /**
-     * @param game   Game entity
-     * @param player current player
-     * @param pit    selected pit
+     * @param game Game entity
+     * @param user current player
+     * @param pit  selected pit
      * @return A wrapper contains all if moves needed to cover the player action. It also save new states of the game
      * and the pits.
      */
-    public UserActionResult generateMoves(Game game, User player, Pit pit) {
+    @Transactional
+    public UserActionResult generateMoves(Game game, User user, Pit pit) {
         var stones = pit.getStones();
-        List<Pit> userPits = game.getPits().stream().filter(p -> p.getUser().equals(player)).collect(toList());
-        List<Pit> userPitsAfter = userPits.stream().filter(p -> p.getIndex() > pit.getIndex()).collect(toList());
-        List<Pit> candidatePits = new ArrayList<>();
-        candidatePits.addAll(userPitsAfter);
-        List<Pit> opponentPits = game.getPits().stream().filter(p -> !p.getUser().equals(player))
-                .filter(p -> !p.isBig())
-                .collect(toList());
-        candidatePits.addAll(opponentPits);
-        List<Pit> userPitsBefore = userPits.stream().filter(p -> p.getIndex() <= pit.getIndex()).collect(toList());
-        candidatePits.addAll(userPitsBefore);
+        List<Pit> userPits = game.getPits().stream().filter(p -> p.getUser().equals(user)).collect(toList());
+        List<Pit> pitsWhichGetStones = findToGetStonePits(game, userPits, pit, user);
 
         Map<Pit, Integer> pitsMap = new LinkedHashMap<>();
-        candidatePits.forEach(p -> pitsMap.put(p, 0));
+        pitsWhichGetStones.forEach(p -> pitsMap.put(p, 0));
 
         pit.setStones(0);
         pitRepo.save(pit);
 
-        Pit lastPit = null;
         Set<Pit> changedPits = new HashSet<>();
-        for (int i = 0; stones > 0; i++) {
-            var currentPit = candidatePits.get(i);
-            pitsMap.put(currentPit, pitsMap.get(currentPit) + 1);
-            currentPit.setStones(currentPit.getStones() + 1);
-            changedPits.add(currentPit);
-            lastPit = currentPit;
-            stones--;
-            if (i == candidatePits.size() - 1) {
-                i = 0;
-            }
-        }
-        changedPits.forEach(pitRepo::save);
+        Pit lastPit = putStoneInPits(pit, stones, pitsWhichGetStones, pitsMap, changedPits);
+        pitRepo.saveAll(changedPits);
 
         List<List<Move>> moves = new ArrayList<>();
+        List<Move> normalMoves = generateStoneMoves(pit, pitsMap);
+        moves.add(normalMoves);
+
+        List<Pit> opponentPits = game.pitsExcludeBigOnOf(game.opponentOf(user));
+
+        Pit toGrabPit = findToGrabPit(user, opponentPits, lastPit);
+        if (toGrabPit != null) {
+            Pit bigPit = userPits.stream().filter(Pit::isBig).findFirst().get();
+            bigPit.setStones(toGrabPit.getStones() + bigPit.getStones() + 1);
+            List<Move> grabMoves = generateGrabbedOpponentStonesMoves(lastPit, toGrabPit, bigPit);
+            toGrabPit.setStones(0);
+            lastPit.setStones(0);
+            pitRepo.save(toGrabPit);
+            pitRepo.save(bigPit);
+            pitRepo.save(lastPit);
+            moves.add(grabMoves);
+        }
+        User nextTurnPlayer = game.determineTheTurn(user, lastPit);
+        game.setCurrentPlayer(nextTurnPlayer);
+
+        var result = new UserActionResult(moves);
+        User hasStoneUser = checkIfGameEnded(game);
+        if (hasStoneUser != null) {
+            User winner = findWinner(game);
+            game.setWinner(winner);
+            List<Pit> pits = game.pitsExcludeBigOnOf(winner);
+            Pit bigPit = game.bigPitOf(winner);
+            List<Move> hasStoneUserMoves = generateHasStoneUserMoves(pits, bigPit);
+            for (Move move : hasStoneUserMoves) {
+                bigPit.setStones(bigPit.getStones() + move.getStone());
+                move.getSource().setStones(0);
+                pitRepo.save(move.getSource());
+            }
+            pitRepo.save(bigPit);
+            result.setRemainStonesMoves(hasStoneUserMoves);
+        }
+        game.updateUserStones();
+        gameRepo.save(game);
+        result.setCurrentPlayer(nextTurnPlayer);
+        return result;
+    }
+
+    private List<Move> generateStoneMoves(Pit pit, Map<Pit, Integer> pitsMap) {
         boolean keepGoing = true;
         List<Move> gameMoves = new ArrayList<>();
         while (keepGoing) {
@@ -83,101 +103,99 @@ public class GamePlayService {
                     break;
                 }
             }
-
         }
-        moves.add(gameMoves);
-
-        List<Move> grabMoves = grabOpponentStonesIfLastPitIsEmpty(player, userPits, opponentPits, lastPit);
-        moves.add(grabMoves);
-
-        User nextTurnPlayer = determineTheTurn(game, player, lastPit);
-        game.setCurrentPlayer(nextTurnPlayer);
-
-        var result = new UserActionResult(moves);
-        User hasStoneUser = checkIfGameEnded(game);
-        if (hasStoneUser != null) {
-            User winner = findWinner(game);
-            game.setWinner(winner);
-
-            List<Move> hasStoneUserMoves = generateHasStoneUserMoves(game, hasStoneUser);
-            result.setRemainStonesMoves(hasStoneUserMoves);
-        }
-        gameRepo.save(game);
-        result.setCurrentPlayer(nextTurnPlayer);
-        return result;
+        return gameMoves;
     }
 
-    private List<Move> grabOpponentStonesIfLastPitIsEmpty(User user, List<Pit> userPits,
-                                                          List<Pit> opponentPits, Pit lastPit) {
-        Pit bigPit = userPits.stream().filter(Pit::isBig).findFirst().get();
-
-        Optional<Pit> toGrabPit = Optional.empty();
-        if (lastPit.getStones() == 1 && lastPit.getUser().equals(user) && !lastPit.isBig()) {
-            toGrabPit = opponentPits.stream().filter(p -> p.getIndex() == GameService.PITS - 1 - lastPit.getIndex())
-                    .findFirst();
+    private Pit putStoneInPits(Pit selectedPit, int stones, List<Pit> toGetStonePits, Map<Pit, Integer> pitsMap, Set<Pit> changedPits) {
+        Pit lastPit = null;
+        for (int i = 0; stones > 0; i++) {
+            var destinationPit = toGetStonePits.get(i);
+            pitsMap.put(destinationPit, pitsMap.get(destinationPit) + 1);
+            destinationPit.setStones(destinationPit.getStones() + 1);
+            changedPits.add(destinationPit);
+            lastPit = destinationPit;
+            stones--;
+            if (lastPitIsThePitItself(destinationPit, selectedPit)) {
+                i = 0;
+            }
         }
-        Optional<Pit> finalToGrabPit = toGrabPit;
-        List<Move> grabMoves = toGrabPit.stream().flatMap(p -> {
-            List<Move> moves = new ArrayList<>();
-            bigPit.setStones(p.getStones() + bigPit.getStones() + 1);
-            var bonusMoves = p.getStones();
-            List<Move> extraMoves = IntStream.range(0, bonusMoves)
-                    .mapToObj(i -> new Move(finalToGrabPit.get(), bigPit, 1)).collect(toList());
-            extraMoves.add(new Move(lastPit, bigPit, 1));
-            p.setStones(0);
-            pitRepo.save(p);
-            pitRepo.save(bigPit);
-            moves.addAll(extraMoves);
-            lastPit.setStones(0);
-            pitRepo.save(lastPit);
-            return moves.stream();
-        }).collect(toList());
-        return grabMoves;
+        return lastPit;
+    }
+
+    private boolean lastPitIsThePitItself(Pit currentPit, Pit selectedPit) {
+        return currentPit.equals(selectedPit);
+    }
+
+
+    private List<Pit> findToGetStonePits(Game game, List<Pit> userPits, Pit currentPit, User user) {
+        List<Pit> toGetStonePits = new ArrayList<>();
+        List<Pit> userPitsAfter = userPits.stream().filter(p -> p.getIndex() > currentPit.getIndex()).collect(toList());
+        toGetStonePits.addAll(userPitsAfter);
+        List<Pit> opponentPits = game.pitsOf(game.opponentOf(user)).stream().filter(p -> !p.isBig()).collect(toList());
+        toGetStonePits.addAll(opponentPits);
+        List<Pit> userPitsBefore = userPits.stream().filter(p -> p.getIndex() < currentPit.getIndex()).collect(toList());
+        toGetStonePits.addAll(userPitsBefore);
+        toGetStonePits.add(currentPit);
+        return toGetStonePits;
+    }
+
+    private List<Move> generateGrabbedOpponentStonesMoves(Pit lastPit, Pit toGrabPit, Pit bigPit) {
+        var bonusMoves = toGrabPit.getStones();
+        List<Move> extraMoves = IntStream.range(0, bonusMoves).mapToObj(i -> new Move(toGrabPit, bigPit, 1)).collect(toList());
+        extraMoves.add(new Move(lastPit, bigPit, 1));
+        return extraMoves;
+    }
+
+    private Pit findToGrabPit(User user, List<Pit> opponentPits, Pit lastPit) {
+        Pit toGrabPit;
+        if (shouldGrabOpponentStones(user, lastPit)) {
+            toGrabPit = pitOfOpponentToGrabStones(opponentPits, lastPit);
+        } else {
+            toGrabPit = null;
+        }
+        return toGrabPit;
+    }
+
+    private Pit pitOfOpponentToGrabStones(List<Pit> opponentPits, Pit lastPit) {
+        return opponentPits.stream().filter(p -> p.getIndex() == GameService.PITS - 1 - lastPit.getIndex()).findFirst().get();
+    }
+
+    private boolean shouldGrabOpponentStones(User user, Pit lastPit) {
+        return lastPit.getStones() == 1 && lastPit.getUser().equals(user) && !lastPit.isBig();
     }
 
     private User findWinner(Game game) {
-        List<Pit> mancalas = game.getMancalas();
-        if (mancalas.get(0).getStones() > mancalas.get(1).getStones()) {
-            return mancalas.get(0).getUser();
+        Map<User, Integer> userSumOfStones = game.getPits().stream()
+                .map(p -> Map.entry(p.getUser(), p.getStones()))
+                .collect(groupingBy(Map.Entry::getKey, summingInt(Map.Entry::getValue)));
+        if (userSumOfStones.get(game.getPlayer1()) > userSumOfStones.get(game.getPlayer2())) {
+            return game.getPlayer1();
         } else {
-            return mancalas.get(1).getUser();
+            return game.getPlayer2();
         }
     }
 
-    private List<Move> generateHasStoneUserMoves(Game game, User winner) {
-        List<Pit> pits = game.getPits().stream().filter(p -> p.getUser().equals(winner)).collect(toList());
-        Pit bigPit = pits.stream().filter(Pit::isBig).findFirst().get();
+    private List<Move> generateHasStoneUserMoves(List<Pit> pits, Pit bigPit) {
         List<Move> moves = new ArrayList<>();
         for (Pit pit : pits) {
-            if (pit.equals(bigPit) || pit.getStones() == 0) {
+            if (pit.getStones() == 0) {
                 continue;
             }
             moves.add(new Move(pit, bigPit, pit.getStones()));
-            bigPit.setStones(bigPit.getStones() + pit.getStones());
-            pit.setStones(0);
-            pitRepo.save(pit);
-            pitRepo.save(bigPit);
         }
         return moves;
     }
 
-    private User determineTheTurn(Game game, User player, Pit lastPit) {
-        if (lastPit.getUser().equals(player) && lastPit.isBig()) {
-            return player;
-        } else {
-            return game.getPlayer1().equals(player) ? game.getPlayer2() : game.getPlayer1();
-        }
-    }
-
     public User checkIfGameEnded(Game game) {
-        Map<User, List<Pit>> collect = game.getPits().stream().collect(groupingBy(Pit::getUser));
-        User hasRemainedStonesUser = null;
-        for (Map.Entry<User, List<Pit>> e : collect.entrySet()) {
-            int sum = e.getValue().stream().filter(p -> !p.isBig()).mapToInt(Pit::getStones).sum();
-            if (sum == 0) {
-                hasRemainedStonesUser = collect.keySet().stream().filter(u -> !u.equals(e.getKey())).findFirst().get();
+        Map<User, List<Pit>> userPits = game.getPits().stream().filter(p -> !p.isBig()).collect(groupingBy(Pit::getUser));
+        User stillHasStoneUser = null;
+        for (Map.Entry<User, List<Pit>> e : userPits.entrySet()) {
+            int userStones = e.getValue().stream().mapToInt(Pit::getStones).sum();
+            if (userStones == 0) {
+                stillHasStoneUser = game.opponentOf(e.getKey());
             }
         }
-        return hasRemainedStonesUser;
+        return stillHasStoneUser;
     }
 }
