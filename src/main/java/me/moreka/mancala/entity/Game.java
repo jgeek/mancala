@@ -66,6 +66,18 @@ public class Game extends BaseEntity {
         return pits.stream().filter(p -> p.getUser().equals(user)).collect(toList());
     }
 
+    public List<Pit> pitsExcludeBigOnOf(User user) {
+        return pitsOf(user).stream().filter(p -> !p.isBig()).collect(toList());
+    }
+
+    public Pit bigPitOf(User user) {
+        return pitsOf(user).stream().filter(Pit::isBig).findFirst().get();
+    }
+
+    public int stonesOf(User user) {
+        return pitsOf(user).stream().mapToInt(Pit::getStones).sum();
+    }
+
     public void validateMove(User user, Pit pit) {
         if (!isUserTurn(user)) {
             throw new InvalidMoveException(String.format("%s! It's not your turn", user.getUsername()));
@@ -76,5 +88,18 @@ public class Game extends BaseEntity {
         if (!pit.hasStone()) {
             throw new InvalidMoveException(String.format("Pit %s has no stone. Try another pit ;)", pit.getIndex()));
         }
+    }
+
+    public User determineTheTurn(User user, Pit lastPit) {
+        if (lastPit.getUser().equals(user) && lastPit.isBig()) {
+            return user;
+        } else {
+            return opponentOf(user);
+        }
+    }
+
+    public void updateUserStones() {
+        setPlayer1Score(bigPitOf(player1).getStones());
+        setPlayer2Score(bigPitOf(player2).getStones());
     }
 }
