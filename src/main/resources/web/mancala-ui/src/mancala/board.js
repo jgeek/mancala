@@ -83,6 +83,12 @@ class Board extends React.Component {
             .then(
                 (result) => {
                     console.log(result);
+                    if (!result.success) {
+                        console.log(result.message);
+                        this.setState({'message': result.message});
+                        alert(result.message);
+                        return;
+                    }
                     const data = result.data;
                     this.setState({
                         'player1': data.player1,
@@ -94,11 +100,6 @@ class Board extends React.Component {
                     });
                     if(data.winner){
                         alert(data.winner.username+ ' wins the game ;)')
-                    }
-                    if (!result.success) {
-                        console.log(result.message);
-                        this.setState({'message': result.message});
-                        alert(result.message);
                     }
                 },
                 (error) => {
