@@ -2,8 +2,6 @@ package me.moreka.mancala.entity;
 
 import static java.util.stream.Collectors.toList;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-
 import java.util.Date;
 import java.util.List;
 import javax.persistence.Entity;
@@ -45,11 +43,6 @@ public class Game extends BaseEntity {
     public Game(long id, String name) {
         super(id);
         this.name = name;
-    }
-
-    @JsonIgnore
-    public List<Pit> getMancalas() {
-        return getPits().stream().filter(Pit::isBig).collect(toList());
     }
 
     public boolean isUserTurn(User user) {

@@ -28,7 +28,8 @@ public class GameService {
     private final PitRepository pitRepo;
     private final UserRepository userRepository;
     private final UserService userService;
-    public Game create2(String username1, String username2) {
+
+    public Game createGame(String username1, String username2) {
 
         var user1 = userService.findOrCreateUser(username1);
         var user2 = userService.findOrCreateUser(username2);

@@ -25,37 +25,38 @@ public class GamePlayService {
     private final PitRepository pitRepo;
 
     /**
-     * @param game Game entity
-     * @param user current player
-     * @param pit  selected pit
+     * @param game        Game entity
+     * @param user        current player
+     * @param selectedPit selected pit
      * @return A wrapper contains all if moves needed to cover the player action. It also save new states of the game
      * and the pits.
      */
     @Transactional
-    public UserActionResult generateMoves(Game game, User user, Pit pit) {
-        var stones = pit.getStones();
-        List<Pit> userPits = game.getPits().stream().filter(p -> p.getUser().equals(user)).collect(toList());
-        List<Pit> pitsWhichGetStones = findToGetStonePits(game, userPits, pit, user);
+    public UserActionResult generateMoves(Game game, User user, Pit selectedPit) {
+        List<Pit> userPits = game.pitsOf(user);
+        List<Pit> pitsWillGetStones = findToGetStonePits(game, userPits, selectedPit, user);
 
         Map<Pit, Integer> pitsMap = new LinkedHashMap<>();
-        pitsWhichGetStones.forEach(p -> pitsMap.put(p, 0));
+        pitsWillGetStones.forEach(p -> pitsMap.put(p, 0));
 
-        pit.setStones(0);
-        pitRepo.save(pit);
+        var stones = selectedPit.getStones();
+        selectedPit.setStones(0);
+        pitRepo.save(selectedPit);
 
         Set<Pit> changedPits = new HashSet<>();
-        Pit lastPit = putStoneInPits(pit, stones, pitsWhichGetStones, pitsMap, changedPits);
+        Pit lastPit = putStoneInPits(selectedPit, stones, pitsWillGetStones, pitsMap, changedPits);
         pitRepo.saveAll(changedPits);
 
         List<List<Move>> moves = new ArrayList<>();
-        List<Move> normalMoves = generateStoneMoves(pit, pitsMap);
+        List<Move> normalMoves = generateStoneMoves(selectedPit, pitsMap);
         moves.add(normalMoves);
 
         List<Pit> opponentPits = game.pitsExcludeBigOnOf(game.opponentOf(user));
 
         Pit toGrabPit = findToGrabPit(user, opponentPits, lastPit);
         if (toGrabPit != null) {
-            Pit bigPit = userPits.stream().filter(Pit::isBig).findFirst().get();
+//            Pit bigPit = userPits.stream().filter(Pit::isBig).findFirst().get();
+            Pit bigPit = game.bigPitOf(user);
             bigPit.setStones(toGrabPit.getStones() + bigPit.getStones() + 1);
             List<Move> grabMoves = generateGrabbedOpponentStonesMoves(lastPit, toGrabPit, bigPit);
             toGrabPit.setStones(0);
@@ -65,12 +66,10 @@ public class GamePlayService {
             pitRepo.save(lastPit);
             moves.add(grabMoves);
         }
-        User nextTurnPlayer = game.determineTheTurn(user, lastPit);
-        game.setCurrentPlayer(nextTurnPlayer);
-
         var result = new UserActionResult(moves);
-        User hasStoneUser = checkIfGameEnded(game);
-        if (hasStoneUser != null) {
+
+        User zeroStoneUser = findUserWithZeroStone(game);
+        if (zeroStoneUser != null) {
             User winner = findWinner(game);
             game.setWinner(winner);
             List<Pit> pits = game.pitsExcludeBigOnOf(winner);
@@ -85,6 +84,8 @@ public class GamePlayService {
             result.setRemainStonesMoves(hasStoneUserMoves);
         }
         game.updateUserStones();
+        User nextTurnPlayer = game.determineTheTurn(user, lastPit);
+        game.setCurrentPlayer(nextTurnPlayer);
         gameRepo.save(game);
         result.setCurrentPlayer(nextTurnPlayer);
         return result;
@@ -187,15 +188,15 @@ public class GamePlayService {
         return moves;
     }
 
-    public User checkIfGameEnded(Game game) {
+    private User findUserWithZeroStone(Game game) {
         Map<User, List<Pit>> userPits = game.getPits().stream().filter(p -> !p.isBig()).collect(groupingBy(Pit::getUser));
-        User stillHasStoneUser = null;
+        User zeroStoneUser = null;
         for (Map.Entry<User, List<Pit>> e : userPits.entrySet()) {
             int userStones = e.getValue().stream().mapToInt(Pit::getStones).sum();
             if (userStones == 0) {
-                stillHasStoneUser = game.opponentOf(e.getKey());
+                zeroStoneUser = e.getKey();
             }
         }
-        return stillHasStoneUser;
+        return zeroStoneUser;
     }
 }
