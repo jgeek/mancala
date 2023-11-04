@@ -27,7 +27,7 @@ public class GamePlayController {
     @PostMapping("/games/start")
     public Result<GameDto> start(@RequestBody UsersDto users) {
         var game = gameService.createGame(users.getPlayer1().getUsername(), users.getPlayer2().getUsername());
-        return new Result<>(true, "", GameDto.toDto(game));
+        return new Result<>(true, "Game started successfully.", GameDto.toDto(game));
     }
 
     @PostMapping("/games/{gameId}/move")
