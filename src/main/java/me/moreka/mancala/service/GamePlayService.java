@@ -36,14 +36,13 @@ public class GamePlayService {
         List<Pit> userPits = game.pitsOf(user);
         List<Pit> pitsWillGetStones = findToGetStonePits(game, userPits, selectedPit, user);
 
-        Map<Pit, Integer> pitsMap = new LinkedHashMap<>();
-        pitsWillGetStones.forEach(p -> pitsMap.put(p, 0));
-
         var stones = selectedPit.getStones();
         selectedPit.setStones(0);
         pitRepo.save(selectedPit);
 
         Set<Pit> changedPits = new HashSet<>();
+        Map<Pit, Integer> pitsMap = new LinkedHashMap<>();
+        pitsWillGetStones.forEach(p -> pitsMap.put(p, 0));
         Pit lastPit = putStoneInPits(selectedPit, stones, pitsWillGetStones, pitsMap, changedPits);
         pitRepo.saveAll(changedPits);
 
@@ -72,11 +71,12 @@ public class GamePlayService {
         if (zeroStoneUser != null) {
             User winner = findWinner(game);
             game.setWinner(winner);
-            List<Pit> pits = game.pitsExcludeBigOnOf(winner);
-            Pit bigPit = game.bigPitOf(winner);
+            var hasStoneUser = game.opponentOf(zeroStoneUser);
+            List<Pit> pits = game.pitsExcludeBigOnOf(hasStoneUser);
+            Pit bigPit = game.bigPitOf(hasStoneUser);
             List<Move> hasStoneUserMoves = generateHasStoneUserMoves(pits, bigPit);
             for (Move move : hasStoneUserMoves) {
-                bigPit.setStones(bigPit.getStones() + move.getStone());
+                bigPit.setStones(bigPit.getStones() + move.getStones());
                 move.getSource().setStones(0);
                 pitRepo.save(move.getSource());
             }

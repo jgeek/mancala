@@ -8,15 +8,21 @@ import lombok.Setter;
 @Getter
 @Setter
 @AllArgsConstructor
-//TODO: using map struct
 public class Move {
     private Pit source;
     private Pit destination;
-    private int stone;
+    private int stones;
 
     @Override
     public String toString() {
         return String.format("User %s, pit %s -> User %s, pit %s", source.getUser(), source.getIndex(),
                 destination.getUser(), destination.getIndex());
+    }
+
+    public void apply() {
+        if (!source.equals(destination)) {
+            source.decrease(stones);
+            destination.increase(stones);
+        }
     }
 }

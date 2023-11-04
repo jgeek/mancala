@@ -13,6 +13,7 @@ import me.moreka.mancala.service.GamePlayService;
 import lombok.AllArgsConstructor;
 import me.moreka.mancala.dto.Result;
 import me.moreka.mancala.dto.UsersDto;
+import me.moreka.mancala.service.MoveService;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -23,6 +24,7 @@ public class GamePlayController {
     private final UserRepository userRepo;
     private final GameService gameService;
     private final GamePlayService gamePlayService;
+    private final MoveService moveService;
 
     @PostMapping("/games/start")
     public Result<GameDto> start(@RequestBody UsersDto users) {
@@ -32,6 +34,17 @@ public class GamePlayController {
 
     @PostMapping("/games/{gameId}/move")
     public Result<GameDto> move(@PathVariable Long gameId, @RequestBody SelectedPit selectedPit) {
+        Game game = gameRepo.findById(gameId).orElseThrow();
+        User user = userRepo.findById(selectedPit.getUserId()).orElseThrow();
+        Pit pit = game.pitsOf(user).stream()
+                .filter(p -> p.getIndex() == selectedPit.getPitIndex()).findFirst().get();
+
+        game.validateMove(user, pit);
+        moveService.move(game, user, pit);
+        return new Result<>(true, "", GameDto.toDto(game));
+    }
+    @PostMapping("/games/{gameId}/moveOld")
+    public Result<GameDto> moveOld(@PathVariable Long gameId, @RequestBody SelectedPit selectedPit) {
         Game game = gameRepo.findById(gameId).orElseThrow();
         User user = userRepo.findById(selectedPit.getUserId()).orElseThrow();
         Pit pit = game.pitsOf(user).stream()

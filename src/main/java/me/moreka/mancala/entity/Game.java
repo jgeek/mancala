@@ -9,6 +9,7 @@ import javax.persistence.OneToMany;
 import javax.persistence.OneToOne;
 
 import lombok.*;
+import me.moreka.mancala.dto.Move;
 import me.moreka.mancala.exception.InvalidMoveException;
 
 @Entity
